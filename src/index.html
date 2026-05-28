@@ -78,6 +78,15 @@
       <button class="tool-btn" id="tool-search" title="Search (Ctrl+F)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
+
+      <div class="tool-divider"></div>
+
+      <button class="tool-btn" id="tool-eyedropper" title="Pick color from screen">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22l1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/></svg>
+      </button>
+      <button class="tool-btn" id="tool-palette" title="Color palette">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2a10 10 0 0 0 0 20 2.5 2.5 0 0 0 2.5-2.5c0-.6-.2-1.1-.6-1.5-.4-.4-.6-.9-.6-1.5a2.5 2.5 0 0 1 2.5-2.5H18a4 4 0 0 0 4-4 10 10 0 0 0-10-8Z"/></svg>
+      </button>
       
       <div class="tool-spacer"></div>
       
@@ -89,6 +98,20 @@
     <div class="search-bar" id="search-bar">
       <input type="text" id="search-input" placeholder="Search collections and notes..." />
       <button id="search-close">×</button>
+    </div>
+
+    <!-- Panou paleta de culori -->
+    <div class="palette-panel" id="palette-panel">
+      <div class="palette-header">
+        <span class="palette-title">PALETTE</span>
+        <div class="palette-actions">
+          <button id="palette-pick" title="Pick a color from screen">+ Pick</button>
+          <button id="palette-clear" title="Clear all">Clear</button>
+          <button id="palette-close-btn" title="Close">×</button>
+        </div>
+      </div>
+      <div class="palette-swatches" id="palette-swatches"></div>
+      <p class="palette-empty" id="palette-empty">No colors yet. Click "Pick" and click anywhere on screen.</p>
     </div>
 
     <main class="content" id="content">
@@ -162,12 +185,23 @@
         <div><kbd>Ctrl</kbd>+<kbd>F</kbd><span>Search</span></div>
         <div><kbd>Ctrl</kbd>+<kbd>V</kbd><span>Paste image</span></div>
         <div><kbd>Scroll</kbd><span>Zoom in preview</span></div>
+        <div><kbd>Ctrl</kbd>+<kbd>K</kbd><span>Pick color</span></div>
         <div><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd><span>Summon window</span></div>
       </div>
     </div>
   </div>
 
   <input type="file" id="hidden-file-input" accept="image/*" multiple style="display: none;" />
+
+  <!-- Overlay fullscreen pentru color picker: afiseaza captura ecranului -->
+  <div class="picker-overlay" id="picker-overlay">
+    <canvas id="picker-canvas"></canvas>
+    <div class="picker-loupe" id="picker-loupe">
+      <canvas id="picker-loupe-canvas" width="120" height="120"></canvas>
+      <div class="picker-loupe-hex" id="picker-loupe-hex">#000000</div>
+    </div>
+    <div class="picker-instructions">Click to pick a color · Esc to cancel</div>
+  </div>
   
   <script src="renderer.js"></script>
 </body>

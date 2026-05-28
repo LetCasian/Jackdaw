@@ -6,7 +6,8 @@ let state = {
   collections: [],
   activeId: null,
   columns: 3,
-  searchQuery: ''
+  searchQuery: '',
+  palette: []   // culori culese: [{ id, hex }]
 };
 
 const GRADIENTS = [
@@ -67,7 +68,8 @@ async function saveState() {
         }))
       })),
       activeId: state.activeId,
-      columns: state.columns
+      columns: state.columns,
+      palette: state.palette
     };
     await window.jackdaw.saveData(cleanState);
   } catch (e) { console.error('Save error:', e); showToast('Save failed'); }
@@ -86,6 +88,7 @@ async function loadState() {
       }));
       state.activeId = data.activeId || data.activeGroupId || (state.collections[0]?.id || null);
       state.columns = data.columns || 3;
+      state.palette = data.palette || [];
     }
   } catch (e) { console.error('Load error:', e); }
 }
@@ -130,6 +133,29 @@ function transformStyle(item) {
   if (item.flipH) parts.push('scaleX(-1)');
   if (item.flipV) parts.push('scaleY(-1)');
   return parts.join(' ');
+}
+
+// Converteste un dataURL in Blob fara fetch (fetch pe data: e blocat de CSP)
+function dataUrlToBlob(dataUrl) {
+  const [header, base64] = dataUrl.split(',');
+  const mime = header.match(/data:([^;]+)/)[1];
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+// Copiaza imaginea (cu transformari) in clipboard pentru paste in Photoshop
+async function copyImageToClipboard(item) {
+  try {
+    const transformedUrl = await getTransformedDataUrl(item);
+    const blob = dataUrlToBlob(transformedUrl);
+    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+    showToast('Copied — paste into Photoshop (Ctrl+V)');
+  } catch (err) {
+    console.error(err);
+    showToast('Could not copy');
+  }
 }
 
 // ------------------------------------------------------------
@@ -333,7 +359,19 @@ function renderImageCard(collection, item) {
   };
   if (item.flipV) btnFlipV.classList.add('active');
 
-  editBar.append(btnRotL, btnRotR, btnFlipH, btnFlipV);
+  // Buton: pin pe ecran (fereastra pop-up flotanta cu zoom)
+  const btnPin = document.createElement('button');
+  btnPin.className = 'img-edit-btn';
+  btnPin.title = 'Pin to screen (floating window)';
+  btnPin.innerHTML = svgPinScreen();
+  btnPin.onclick = async (e) => {
+    e.stopPropagation();
+    const transformedUrl = await getTransformedDataUrl(item);
+    window.jackdaw.openPinWindow({ dataUrl: transformedUrl });
+    showToast('Pinned to screen');
+  };
+
+  editBar.append(btnRotL, btnRotR, btnFlipH, btnFlipV, btnPin);
   card.appendChild(editBar);
 
   // --- Actiuni: sterge ---
@@ -355,21 +393,46 @@ function renderImageCard(collection, item) {
   // Buton dedicat de drag-out spre Photoshop (apare pe hover, sus-stanga)
   const dragHandle = document.createElement('button');
   dragHandle.className = 'img-drag-handle';
-  dragHandle.title = 'Drag to Photoshop (or click to copy)';
+  dragHandle.title = 'Copy image (then Ctrl+V in Photoshop)';
   dragHandle.innerHTML = svgDragOut();
-  // Click pe handle = copiaza imaginea in clipboard (plasa de siguranta)
-  dragHandle.onclick = async (e) => {
+  // Drag handle cu doua functii:
+  //  - mousedown + miscare = drag nativ spre Photoshop (fisier real)
+  //  - click simplu (fara miscare) = copiaza in clipboard
+  let handleMouseDown = false;
+  let handleMoved = false;
+  let downX = 0, downY = 0;
+
+  dragHandle.addEventListener('mousedown', (e) => {
     e.stopPropagation();
-    try {
-      const transformedUrl = await getTransformedDataUrl(item);
-      const blob = await (await fetch(transformedUrl)).blob();
-      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-      showToast('Copied — paste into Photoshop (Ctrl+V)');
-    } catch (err) {
-      console.error(err);
-      showToast('Could not copy');
+    handleMouseDown = true;
+    handleMoved = false;
+    downX = e.clientX;
+    downY = e.clientY;
+  });
+
+  dragHandle.addEventListener('mousemove', (e) => {
+    if (!handleMouseDown || handleMoved) return;
+    if (Math.abs(e.clientX - downX) > 4 || Math.abs(e.clientY - downY) > 4) {
+      handleMoved = true;
+      handleMouseDown = false;
+      // Drag-ul nativ Electron crapa pe Windows (crashpad), asa ca in loc de
+      // drag declansam copierea in clipboard - utilizatorul face Ctrl+V in Photoshop.
+      copyImageToClipboard(item);
     }
-  };
+  });
+
+  dragHandle.addEventListener('mouseup', (e) => {
+    if (handleMouseDown && !handleMoved) {
+      // Click simplu = copiaza in clipboard
+      copyImageToClipboard(item);
+    }
+    handleMouseDown = false;
+  });
+
+  // Impiedicam handle-ul sa porneasca drag-ul HTML5 al cardului
+  dragHandle.addEventListener('dragstart', (e) => e.preventDefault());
+  dragHandle.draggable = false;
+
   card.appendChild(dragHandle);
 
   // Dublu-click -> preview cu zoom
@@ -378,27 +441,19 @@ function renderImageCard(collection, item) {
     openPreview(item);
   });
 
-  // --- DRAG NATIV spre Photoshop / aplicatii externe ---
-  // startDrag-ul Electron porneste un drag de FISIER pe care Photoshop il accepta.
-  // Il declansam din dragstart, fara preventDefault (asta era bug-ul vechi).
+  // --- DRAG INTERN (mutare intre colectii) - doar HTML5, fara startDrag nativ ---
   card.draggable = true;
-  card.addEventListener('dragstart', async (e) => {
+  card.addEventListener('dragstart', (e) => {
     if (e.target.closest('.img-edit-btn, .img-action-btn, .img-drag-handle')) {
       e.preventDefault();
       return;
     }
-    // Date pentru mutarea interna intre colectii (drop in interiorul app-ului)
     e.dataTransfer.setData('text/plain', JSON.stringify({
       type: 'move', fromGroup: collection.id, itemId: item.id
     }));
-    e.dataTransfer.effectAllowed = 'copyMove';
-
-    // Pentru drag spre EXTERIOR (Photoshop): pregatim fisierul si pornim
-    // drag-ul nativ Electron. Acesta preia controlul de la HTML5 drag.
-    const transformedUrl = await getTransformedDataUrl(item);
-    window.jackdaw.startDrag({ dataUrl: transformedUrl, id: item.id });
+    e.dataTransfer.effectAllowed = 'move';
+    card.style.opacity = '0.4';
   });
-
   card.addEventListener('dragend', () => { card.style.opacity = '1'; });
 
   return card;
@@ -774,9 +829,11 @@ document.addEventListener('keydown', (e) => {
   if (ctrl && e.key === 'i') { e.preventDefault(); document.getElementById('tool-add-image').click(); }
   else if (ctrl && e.key === 'g') { e.preventDefault(); addCollection(); }
   else if (ctrl && e.key === 'f') { e.preventDefault(); document.getElementById('tool-search').click(); }
+  else if (ctrl && e.key === 'k') { e.preventDefault(); document.getElementById('tool-eyedropper').click(); }
   else if (e.key === 'Escape') {
     if (previewOverlay.classList.contains('visible')) previewOverlay.classList.remove('visible');
     else if (aboutOverlay.classList.contains('visible')) aboutOverlay.classList.remove('visible');
+    else if (palettePanel.classList.contains('visible')) palettePanel.classList.remove('visible');
     else if (searchBar.classList.contains('visible')) document.getElementById('search-close').click();
   }
 });
@@ -794,6 +851,203 @@ function svgRotateRight() { return '<svg width="14" height="14" viewBox="0 0 24 
 function svgFlipH() { return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"/><path d="M16 7l4 5-4 5"/><path d="M8 7l-4 5 4 5"/></svg>'; }
 function svgFlipV() { return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"/><path d="M7 8l5-4 5 4"/><path d="M7 16l5 4 5-4"/></svg>'; }
 function svgDragOut() { return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9V5a2 2 0 0 1 2-2h4"/><path d="M9 21H5a2 2 0 0 1-2-2v-4"/><path d="M21 3l-8 8"/><path d="M15 3h6v6"/></svg>'; }
+function svgPinScreen() { return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/><path d="M12 16v5"/><path d="M8 4h8"/></svg>'; }
+
+// ------------------------------------------------------------
+// COLOR PICKER + PALETA
+// Folosim API-ul nativ EyeDropper (Chromium) - poate culege culoarea
+// de oriunde de pe ecran, inclusiv din alte aplicatii (Photoshop, Blender).
+// ------------------------------------------------------------
+const palettePanel = document.getElementById('palette-panel');
+const paletteSwatches = document.getElementById('palette-swatches');
+const paletteEmpty = document.getElementById('palette-empty');
+
+function renderPalette() {
+  paletteSwatches.innerHTML = '';
+  if (!state.palette.length) {
+    paletteEmpty.classList.remove('hidden');
+  } else {
+    paletteEmpty.classList.add('hidden');
+  }
+  state.palette.forEach(color => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch';
+    sw.title = 'Click to copy ' + color.hex;
+
+    const colorBox = document.createElement('div');
+    colorBox.className = 'swatch-color';
+    colorBox.style.background = color.hex;
+
+    const hex = document.createElement('div');
+    hex.className = 'swatch-hex';
+    hex.textContent = color.hex.toUpperCase();
+
+    const del = document.createElement('button');
+    del.className = 'swatch-del';
+    del.innerHTML = '&times;';
+    del.onclick = (e) => {
+      e.stopPropagation();
+      state.palette = state.palette.filter(c => c.id !== color.id);
+      scheduleAutoSave();
+      renderPalette();
+    };
+
+    sw.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(color.hex.toUpperCase());
+        showToast('Copied ' + color.hex.toUpperCase());
+      } catch (e) { showToast('Could not copy'); }
+    };
+
+    sw.append(colorBox, hex, del);
+    paletteSwatches.appendChild(sw);
+  });
+}
+
+// Elemente picker
+const pickerOverlay = document.getElementById('picker-overlay');
+const pickerCanvas = document.getElementById('picker-canvas');
+const pickerLoupe = document.getElementById('picker-loupe');
+const pickerLoupeCanvas = document.getElementById('picker-loupe-canvas');
+const pickerLoupeHex = document.getElementById('picker-loupe-hex');
+let pickerCtx = null;
+let pickerImageData = null;
+let pickerScaleX = 1, pickerScaleY = 1;
+
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+async function pickColorFromScreen() {
+  try {
+    // 1) Ascundem fereastra Jackdaw ca sa capturam ce e dedesubt
+    await window.jackdaw.hideForCapture();
+    // 2) Capturam ecranul
+    const cap = await window.jackdaw.captureScreen();
+    if (!cap || !cap.dataUrl) {
+      window.jackdaw.showAfterCapture();
+      showToast('Could not capture screen');
+      return;
+    }
+    // 3) Punem fereastra sa acopere tot ecranul, ca overlay-ul sa fie 1:1
+    await window.jackdaw.enterPickerFullscreen();
+
+    // Incarcam captura intr-un canvas la dimensiunea reala (pixeli)
+    const img = new Image();
+    img.onload = () => {
+      pickerCanvas.width = img.width;
+      pickerCanvas.height = img.height;
+      pickerCtx = pickerCanvas.getContext('2d', { willReadFrequently: true });
+      pickerCtx.drawImage(img, 0, 0);
+      pickerImageData = pickerCtx.getImageData(0, 0, img.width, img.height);
+      // Acum fereastra e fullscreen, deci innerWidth/Height = tot ecranul
+      pickerScaleX = img.width / window.innerWidth;
+      pickerScaleY = img.height / window.innerHeight;
+      pickerOverlay.classList.add('visible');
+    };
+    img.src = cap.dataUrl;
+  } catch (e) {
+    console.error('pickColor error:', e);
+    window.jackdaw.showAfterCapture();
+    window.jackdaw.exitPickerFullscreen();
+    showToast('Color pick failed');
+  }
+}
+
+// Citeste culoarea de la pozitia CSS (x,y) din captura
+function colorAt(cssX, cssY) {
+  if (!pickerImageData) return null;
+  const px = Math.floor(cssX * pickerScaleX);
+  const py = Math.floor(cssY * pickerScaleY);
+  const idx = (py * pickerImageData.width + px) * 4;
+  const d = pickerImageData.data;
+  return { r: d[idx], g: d[idx+1], b: d[idx+2] };
+}
+
+// Miscarea mouse-ului: actualizam lupa marita
+pickerOverlay.addEventListener('mousemove', (e) => {
+  if (!pickerImageData) return;
+  const c = colorAt(e.clientX, e.clientY);
+  if (!c) return;
+  const hex = rgbToHex(c.r, c.g, c.b);
+
+  // Pozitionam lupa langa cursor
+  pickerLoupe.classList.add('visible');
+  pickerLoupe.style.left = e.clientX + 'px';
+  pickerLoupe.style.top = (e.clientY - 80) + 'px';
+  pickerLoupeHex.textContent = hex.toUpperCase();
+  pickerLoupeHex.style.color = hex;
+
+  // Desenam zona marita in lupa (zoom 8x in jurul cursorului)
+  const lc = pickerLoupeCanvas.getContext('2d');
+  lc.imageSmoothingEnabled = false;
+  lc.clearRect(0, 0, 120, 120);
+  const srcSize = 15; // pixeli sursa
+  const px = Math.floor(e.clientX * pickerScaleX);
+  const py = Math.floor(e.clientY * pickerScaleY);
+  lc.drawImage(
+    pickerCanvas,
+    px - srcSize/2, py - srcSize/2, srcSize, srcSize,
+    0, 0, 120, 120
+  );
+  // Crosshair central
+  lc.strokeStyle = 'rgba(255,255,255,0.9)';
+  lc.lineWidth = 1;
+  lc.strokeRect(60 - 4, 60 - 4, 8, 8);
+});
+
+// Click = alegem culoarea
+pickerOverlay.addEventListener('click', (e) => {
+  const c = colorAt(e.clientX, e.clientY);
+  closePicker();
+  if (!c) return;
+  const hex = rgbToHex(c.r, c.g, c.b);
+  if (!state.palette.some(col => col.hex.toLowerCase() === hex.toLowerCase())) {
+    state.palette.unshift({ id: uid(), hex });
+    scheduleAutoSave();
+    renderPalette();
+  }
+  navigator.clipboard.writeText(hex.toUpperCase()).catch(() => {});
+  showToast('Picked ' + hex.toUpperCase());
+  // Deschidem paleta ca sa vada culoarea adaugata
+  palettePanel.classList.add('visible');
+  renderPalette();
+});
+
+function closePicker() {
+  pickerOverlay.classList.remove('visible');
+  pickerLoupe.classList.remove('visible');
+  pickerImageData = null;
+  // Revenim la dimensiunea/pozitia ferestrei dinainte de picker
+  window.jackdaw.exitPickerFullscreen();
+}
+
+// Esc anuleaza picker-ul
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && pickerOverlay.classList.contains('visible')) {
+    closePicker();
+  }
+}, true);
+
+document.getElementById('tool-eyedropper').onclick = pickColorFromScreen;
+
+document.getElementById('tool-palette').onclick = () => {
+  palettePanel.classList.toggle('visible');
+  if (palettePanel.classList.contains('visible')) renderPalette();
+};
+
+document.getElementById('palette-pick').onclick = pickColorFromScreen;
+
+document.getElementById('palette-clear').onclick = () => {
+  if (state.palette.length && !confirm('Clear all saved colors?')) return;
+  state.palette = [];
+  scheduleAutoSave();
+  renderPalette();
+};
+
+document.getElementById('palette-close-btn').onclick = () => {
+  palettePanel.classList.remove('visible');
+};
 
 // ------------------------------------------------------------
 // INIT
@@ -801,5 +1055,6 @@ function svgDragOut() { return '<svg width="13" height="13" viewBox="0 0 24 24" 
 (async function init() {
   await loadState();
   render();
+  renderPalette();
   console.log('Jackdaw ready. Collections:', state.collections.length);
 })();

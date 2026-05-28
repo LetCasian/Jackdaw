@@ -270,6 +270,188 @@ button {
 }
 
 /* ============================================================
+   PALETA DE CULORI
+   ============================================================ */
+.palette-panel {
+  position: absolute;
+  top: 8px;
+  left: calc(var(--toolbar-width) + 12px);
+  right: 12px;
+  background: var(--raven-light);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: none;
+  z-index: 90;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+}
+
+.palette-panel.visible { display: block; }
+
+.palette-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.palette-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-style: italic;
+  letter-spacing: 2px;
+  color: var(--eye-blue);
+}
+
+.palette-actions { display: flex; gap: 6px; align-items: center; }
+
+.palette-actions button {
+  background: var(--raven-soft);
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.palette-actions button:hover {
+  background: var(--raven-hover);
+  color: var(--text-primary);
+}
+
+#palette-pick { color: var(--eye-blue); border-color: var(--eye-blue-dim); }
+#palette-pick:hover { background: var(--eye-blue); color: var(--raven); }
+#palette-close-btn { padding: 3px 8px; font-size: 14px; }
+
+.palette-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.swatch {
+  position: relative;
+  width: 54px;
+  cursor: pointer;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  transition: transform 0.12s;
+}
+
+.swatch:hover { transform: translateY(-2px); }
+
+.swatch-color { width: 100%; height: 40px; }
+
+.swatch-hex {
+  font-size: 9px;
+  font-family: monospace;
+  text-align: center;
+  padding: 3px 0;
+  background: var(--raven-soft);
+  color: var(--text-secondary);
+  letter-spacing: 0.3px;
+}
+
+.swatch-del {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  background: rgba(0,0,0,0.7);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: opacity 0.12s;
+}
+
+.swatch:hover .swatch-del { opacity: 1; }
+
+.palette-empty {
+  font-size: 11px;
+  color: var(--ash-dark);
+  text-align: center;
+  padding: 8px 0;
+}
+
+.palette-empty.hidden { display: none; }
+
+/* ============================================================
+   COLOR PICKER OVERLAY (fullscreen)
+   ============================================================ */
+.picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: none;
+  cursor: crosshair;
+  background: #000;
+}
+
+.picker-overlay.visible { display: block; }
+
+#picker-canvas {
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+.picker-loupe {
+  position: fixed;
+  width: 120px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 5001;
+  display: none;
+}
+
+.picker-loupe.visible { display: block; }
+
+#picker-loupe-canvas {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 1px #000, 0 4px 16px rgba(0,0,0,0.6);
+  image-rendering: pixelated;
+  background: #1a1a1a;
+}
+
+.picker-loupe-hex {
+  margin-top: 6px;
+  text-align: center;
+  font-family: monospace;
+  font-size: 12px;
+  color: #fff;
+  background: rgba(0,0,0,0.8);
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.picker-instructions {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 13px;
+  z-index: 5001;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+}
+
+/* ============================================================
    CONTENT AREA
    ============================================================ */
 .content {
