@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <g transform="translate(16, 17)">
+    <path d="M -10 1 Q -11 -7 -6 -10 Q 0 -13 7 -10 Q 13 -6 11 2 Q 8 8 2 9 Q -7 9 -10 1 Z" 
+          fill="#e8e8e8"/>
+    <ellipse cx="3" cy="-5" rx="1.4" ry="1.2" fill="#7BA7BC"/>
+    <circle cx="3.2" cy="-5" r="0.5" fill="#0a0a0a"/>
+    <path d="M 7 -6 L 12 -4.5 L 7 -3.5 Z" fill="#9B9999"/>
+  </g>
+</svg>
