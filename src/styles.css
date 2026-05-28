@@ -477,10 +477,99 @@ button {
   border-color: var(--eye-blue);
 }
 
+.img-wrap {
+  width: 100%;
+  display: block;
+  overflow: hidden;
+}
+
 .img-card img {
   width: 100%;
   display: block;
   pointer-events: none;
+  transition: transform 0.2s ease;
+}
+
+/* Toolbar de editare imagine (rotire / flip) - apare pe hover */
+.img-edit-bar {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: rgba(15, 15, 15, 0.88);
+  backdrop-filter: blur(6px);
+  border-radius: 6px;
+  border: 1px solid var(--border-light);
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+.img-card:hover .img-edit-bar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.img-edit-btn {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.img-edit-btn:hover {
+  background: var(--raven-hover);
+  color: var(--eye-blue);
+}
+
+.img-edit-btn.active {
+  background: var(--eye-blue);
+  color: var(--raven);
+}
+
+/* Handle de drag-out spre Photoshop (sus-stanga, pe hover) */
+.img-drag-handle {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 22px;
+  height: 22px;
+  background: rgba(15, 15, 15, 0.8);
+  border: 1px solid var(--border-light);
+  border-radius: 5px;
+  color: var(--eye-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.12s;
+  backdrop-filter: blur(4px);
+}
+
+.img-card:hover .img-drag-handle {
+  opacity: 1;
+}
+
+.img-drag-handle:hover {
+  background: var(--eye-blue);
+  color: var(--raven);
+}
+
+.img-drag-handle:active {
+  cursor: grabbing;
 }
 
 .img-card .img-actions {
@@ -651,7 +740,7 @@ button {
   align-items: center;
   justify-content: center;
   z-index: 3000;
-  cursor: zoom-out;
+  overflow: hidden;
 }
 
 .preview-overlay.visible {
@@ -662,6 +751,31 @@ button {
   max-width: 95%;
   max-height: 95%;
   object-fit: contain;
+  cursor: grab;
+  transition: transform 0.05s linear;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.preview-overlay img.grabbing {
+  cursor: grabbing;
+  transition: none;
+}
+
+.preview-zoom-hint {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.08);
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 11px;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  transition: opacity 0.3s;
 }
 
 .preview-close {

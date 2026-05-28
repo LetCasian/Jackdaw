@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: file:;" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: file: https: http:; connect-src 'self' https: http:;" />
   <title>Jackdaw</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -127,7 +127,8 @@
 
   <div class="preview-overlay" id="preview-overlay">
     <button class="preview-close" id="preview-close">×</button>
-    <img id="preview-image" alt="" />
+    <div class="preview-zoom-hint" id="preview-zoom-hint">Scroll to zoom · drag to pan · double-click to reset</div>
+    <img id="preview-image" alt="" draggable="false" />
   </div>
 
   <!-- About dialog -->
@@ -160,6 +161,7 @@
         <div><kbd>Ctrl</kbd>+<kbd>G</kbd><span>New collection</span></div>
         <div><kbd>Ctrl</kbd>+<kbd>F</kbd><span>Search</span></div>
         <div><kbd>Ctrl</kbd>+<kbd>V</kbd><span>Paste image</span></div>
+        <div><kbd>Scroll</kbd><span>Zoom in preview</span></div>
         <div><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd><span>Summon window</span></div>
       </div>
     </div>
